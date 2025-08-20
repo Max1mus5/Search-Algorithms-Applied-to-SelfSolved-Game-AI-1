@@ -1,15 +1,10 @@
-version: "1"
-build:
-  commands:
-    - cd api-backend
-    - python -m pip install --upgrade pip
-    - pip install -r requirements.txt
-start:
-  command: cd api-backend && python run.py
-healthCheck:
-  path: /health
-env:
-  - key: PYTHON_VERSION
-    value: "3.11.0"
-  - key: PIP_DISABLE_PIP_VERSION_CHECK
-    value: "1"
+services:
+  - type: web
+    name: puzzle-solver-api
+    runtime: python
+    buildCommand: cd api-backend && pip install -r requirements.txt
+    startCommand: cd api-backend && python run.py
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
