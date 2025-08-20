@@ -1,4 +1,3 @@
-# main_UI.py (FASE 1: mínimo)
 import tkinter as tk
 from tkinter import ttk, messagebox
 import sys
@@ -12,7 +11,12 @@ sys.path.append(os.path.join(current_dir, 'Problems'))
 sys.path.append(os.path.join(current_dir, 'Search-algoritms'))
 
 try:
-    from Problems.N_8_Problem import EightPuzzle
+    # Importar N-8-Problem usando importlib
+    n8_path = os.path.join(current_dir, 'Problems', 'N-8-Problem.py')
+    spec = importlib.util.spec_from_file_location("n8_mod", n8_path)
+    n8_mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(n8_mod)
+    EightPuzzle = n8_mod.EightPuzzle
     from Heuristics import HEURISTICS, GOAL
     
     # Importar algoritmos desde archivo con nombre complejo
