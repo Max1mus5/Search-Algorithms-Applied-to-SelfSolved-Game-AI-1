@@ -11,7 +11,7 @@ import importlib.util
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 # Add parent directory to path to import our algorithms
 parent_dir = Path(__file__).parent.parent
@@ -48,10 +48,10 @@ app = FastAPI(
 
 # Request/Response models
 class SolveRequest(BaseModel):
-    algorithm: str = Field(..., description="Algorithm to use")
-    heuristic: str = Field(default="manhattan", description="Heuristic function")
-    initial: List[List[int]] = Field(..., description="Initial state as 3x3 matrix")
-    mode: str = Field(default="steps", description="Response mode: 'steps' or 'final'")
+    algorithm: str
+    heuristic: str = "manhattan"
+    initial: List[List[int]]
+    mode: str = "steps"
 
 class StepInfo(BaseModel):
     board: List[List[int]]
@@ -259,10 +259,10 @@ if __name__ == "__main__":
 
 # Request/Response models
 class SolveRequest(BaseModel):
-    algorithm: str = Field(..., description="Algorithm to use")
-    heuristic: str = Field(default="manhattan", description="Heuristic function")
-    initial: List[List[int]] = Field(..., description="Initial state as 3x3 matrix")
-    mode: str = Field(default="steps", description="Response mode: 'steps' or 'final'")
+    algorithm: str
+    heuristic: str = "manhattan"
+    initial: List[List[int]]
+    mode: str = "steps"
 
 class StepInfo(BaseModel):
     board: List[List[int]]

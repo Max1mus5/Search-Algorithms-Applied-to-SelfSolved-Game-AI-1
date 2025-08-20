@@ -1,7 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    telemetry: false,
+  },
   env: {
-    BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8000',
+    BACKEND_URL: process.env.BACKEND_URL || 'https://search-algorithms-applied-to-selfsolved.onrender.com',
   },
   async headers() {
     return [

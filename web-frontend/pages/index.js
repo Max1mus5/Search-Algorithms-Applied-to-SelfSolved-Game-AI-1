@@ -54,7 +54,9 @@ export default function Home() {
   // parse & call backend
   async function callSolveApi(payload) {
     // Use environment variable for backend URL
-    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 
+                      'https://search-algorithms-applied-to-selfsolved.onrender.com';
+    
     const res = await fetch(`${backendUrl}/api/solve`, {
       method: "POST",
       headers: { 
