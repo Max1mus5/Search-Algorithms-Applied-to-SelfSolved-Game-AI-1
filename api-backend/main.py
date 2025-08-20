@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 FastAPI Backend for 8-Puzzle Solver
-Wraps the existing Python algorithms to provide HTTP API
+Optimized for Render deployment
 """
 
 import sys
@@ -11,7 +11,6 @@ import importlib.util
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 # Add parent directory to path to import our algorithms
@@ -47,14 +46,216 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# Enable CORS for frontend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Request/Response models
+class SolveRequest(BaseModel):
+    algorithm: str = Field(..., description="Algorithm to use")
+    heuristic: str = Field(default="manhattan", description="Heuristic function")
+    initial: List[List[int]] = Field(..., description="Initial state as 3x3 matrix")
+    mode: str = Field(default="steps", description="Response mode: 'steps' or 'final'")
+
+class StepInfo(BaseModel):
+    board: List[List[int]]
+    move: str
+    heuristic: Optional[float] = None
+    depth: int = 0
+    cost: float = 0
+
+class SolveResponse(BaseModel):
+    success: bool
+    message: str = ""
+    steps: Optional[List[StepInfo]] = None
+    metrics: Optional[Dict[str, Any]] = None
+
+# Algorithm mapping
+ALGORITHMS = {
+    "bfs": search_algorithms.bfs,
+    "dfs": search_algorithms.dfs,
+    "ucs": search_algorithms.ucs,
+    "greedy": search_algorithms.greedy,
+    "astar": search_algorithms.astar,
+    "ida": search_algorithms.ida_star,
+}
+
+def matrix_to_tuple(matrix: List[List[int]]) -> tuple:
+    """Convert 3x3 matrix to flat tuple for our algorithms"""
+    return tuple(item for row in matrix for item in row)
+
+def tuple_to_matrix(state_tuple: tuple) -> List[List[int]]:
+    """Convert flat tuple back to 3x3 matrix"""
+    return [
+        [state_tuple[0], state_tuple[1], state_tuple[2]],
+        [state_tuple[3], state_tuple[4], state_tuple[5]],
+        [state_tuple[6], state_tuple[7], state_tuple[8]]
+    ]
+
+def get_move_description(from_state: tuple, to_state: tuple) -> str:
+    """Generate human-readable move description"""
+    if from_state == to_state:
+        return "Initial state"
+    
+    from_empty = from_state.index(0)
+    to_empty = to_state.index(0)
+    moved_number = from_state[to_empty]
+    
+    directions = {
+        -3: "Up",
+        3: "Down", 
+        -1: "Left",
+        1: "Right"
+    }
+    
+    direction = directions.get(to_empty - from_empty, "Unknown")
+    return f"Move {moved_number} {direction}"
+
+def reconstruct_solution_steps(problem: EightPuzzle, result: Dict, heuristic_func) -> List[StepInfo]:
+    """Reconstruct step-by-step solution from search result"""
+    steps = []
+    
+    if not result.get('success') or not result.get('actions'):
+        initial_matrix = tuple_to_matrix(problem.initial)
+        steps.append(StepInfo(
+            board=initial_matrix,
+            move="Initial state",
+            heuristic=heuristic_func(problem.initial) if heuristic_func else None,
+            depth=0,
+            cost=0
+        ))
+        return steps
+    
+    current_state = problem.initial
+    current_cost = 0
+    
+    initial_matrix = tuple_to_matrix(current_state)
+    steps.append(StepInfo(
+        board=initial_matrix,
+        move="Initial state", 
+        heuristic=heuristic_func(current_state) if heuristic_func else None,
+        depth=0,
+        cost=current_cost
+    ))
+    
+    for i, action in enumerate(result['actions']):
+        next_state = problem.result(current_state, action)
+        current_cost += problem.step_cost(current_state, action, next_state)
+        
+        matrix = tuple_to_matrix(next_state)
+        move_desc = get_move_description(current_state, next_state)
+        
+        steps.append(StepInfo(
+            board=matrix,
+            move=move_desc,
+            heuristic=heuristic_func(next_state) if heuristic_func else None,
+            depth=i + 1,
+            cost=current_cost
+        ))
+        
+        current_state = next_state
+    
+    return steps
+
+@app.get("/")
+async def root():
+    return {"message": "8-Puzzle Solver API", "version": "2.0.0", "status": "healthy"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": time.time()}
+
+@app.get("/algorithms")
+async def get_algorithms():
+    """Get available algorithms and heuristics"""
+    return {
+        "algorithms": list(ALGORITHMS.keys()),
+        "heuristics": list(HEURISTICS.keys())
+    }
+
+@app.post("/api/solve", response_model=SolveResponse)
+async def solve_puzzle(request: SolveRequest):
+    """Solve the 8-puzzle with specified algorithm and heuristic"""
+    
+    if request.algorithm not in ALGORITHMS:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Unknown algorithm: {request.algorithm}. Available: {list(ALGORITHMS.keys())}"
+        )
+    
+    if request.algorithm in ["greedy", "astar", "ida"] and request.heuristic not in HEURISTICS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown heuristic: {request.heuristic}. Available: {list(HEURISTICS.keys())}"
+        )
+    
+    try:
+        initial_tuple = matrix_to_tuple(request.initial)
+        if len(initial_tuple) != 9 or set(initial_tuple) != set(range(9)):
+            raise ValueError("Invalid state")
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Initial state must be a 3x3 matrix with numbers 0-8 exactly once"
+        )
+    
+    problem = EightPuzzle(initial_tuple)
+    algorithm_func = ALGORITHMS[request.algorithm]
+    
+    heuristic_func = None
+    if request.algorithm in ["greedy", "astar", "ida"]:
+        heuristic_func = lambda state: HEURISTICS[request.heuristic](state, GOAL)
+    
+    start_time = time.time()
+    
+    try:
+        if heuristic_func:
+            result = algorithm_func(problem, heuristic_func)
+        else:
+            result = algorithm_func(problem)
+        
+        end_time = time.time()
+        execution_time = (end_time - start_time) * 1000
+        
+        if not result.get('success'):
+            return SolveResponse(
+                success=False,
+                message=result.get('message', 'No solution found'),
+                steps=None,
+                metrics=None
+            )
+        
+        steps = reconstruct_solution_steps(problem, result, heuristic_func)
+        
+        metrics = {
+            "moves": result.get('depth', 0),
+            "time": execution_time,
+            "nodes_explored": result.get('nodes_explored', 0),
+            "cost": result.get('cost', 0),
+            "algorithm": request.algorithm,
+            "heuristic": request.heuristic if heuristic_func else None
+        }
+        
+        return SolveResponse(
+            success=True,
+            message="Solution found successfully",
+            steps=steps,
+            metrics=metrics
+        )
+        
+    except Exception as e:
+        return SolveResponse(
+            success=False,
+            message=f"Error during solving: {str(e)}",
+            steps=None,
+            metrics=None
+        )
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    host = os.environ.get("HOST", "0.0.0.0")
+    
+    print(f"🚀 Starting 8-Puzzle API Server on {host}:{port}")
+    print(f"📚 API Documentation: http://{host}:{port}/docs")
+    
+    uvicorn.run(app, host=host, port=port)
 
 # Request/Response models
 class SolveRequest(BaseModel):

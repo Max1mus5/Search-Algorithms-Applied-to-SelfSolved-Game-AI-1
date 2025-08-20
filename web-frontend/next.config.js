@@ -1,16 +1,28 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  async rewrites() {
+  env: {
+    BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8000',
+  },
+  async headers() {
     return [
       {
-        source: '/api/solve',
-        destination: 'http://localhost:8000/api/solve', // Backend Python
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, PUT, DELETE, OPTIONS',
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Content-Type, Authorization',
+          },
+        ],
       },
-      {
-        source: '/api/algorithms',
-        destination: 'http://localhost:8000/algorithms',
-      },
-    ];
+    ]
   },
 }
 

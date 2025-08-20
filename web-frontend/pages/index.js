@@ -53,10 +53,14 @@ export default function Home() {
 
   // parse & call backend
   async function callSolveApi(payload) {
-    // POST to /api/solve (backend Python). Backend must accept JSON per spec.
-    const res = await fetch("/api/solve", {
+    // Use environment variable for backend URL
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+    const res = await fetch(`${backendUrl}/api/solve`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
       body: JSON.stringify(payload),
     });
     if (!res.ok) {

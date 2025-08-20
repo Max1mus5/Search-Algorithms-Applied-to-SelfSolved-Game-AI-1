@@ -1,0 +1,12 @@
+version: 1
+build:
+  commands:
+    - cd api-backend
+    - pip install -r requirements.txt
+start:
+  command: cd api-backend && python main.py
+healthCheck:
+  path: /health
+env:
+  - key: PYTHON_VERSION
+    value: 3.11.0
