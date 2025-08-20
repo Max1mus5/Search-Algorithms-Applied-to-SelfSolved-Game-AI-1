@@ -1,11 +1,25 @@
-contourpy==1.3.3
-cycler==0.12.1
-fonttools==4.59.0
-kiwisolver==1.4.9
-matplotlib==3.10.5
-numpy==2.3.2
-packaging==25.0
-pillow==11.3.0
-pyparsing==3.2.3
-python-dateutil==2.9.0.post0
-six==1.17.0
+# Requirements for 8-Puzzle Search Algorithms (FASE 1)
+# This project uses only standard Python libraries
+
+# Core dependencies (included in Python standard library):
+# - typing (Python 3.5+)
+# - time (builtin)
+# - sys (builtin)
+# - os (builtin)
+# - importlib (Python 3.4+)
+
+# Optional dependencies for GUI (main_UI.py):
+# - tkinter (usually included with Python, may need separate installation on some Linux systems)
+#   Install with: sudo apt-get install python3-tk (Ubuntu/Debian)
+#               : sudo yum install tkinter (CentOS/RHEL)
+#               : sudo pacman -S tk (Arch Linux)
+
+# No external packages required via pip!
+# This implementation follows the requirement of using only standard Python libraries.
+
+# To run the project:
+# 1. Terminal interface: python main.py
+# 2. Quick test: python main.py --test  
+# 3. GUI interface: python main_UI.py (requires tkinter)
+
+# Tested with Python 3.8+

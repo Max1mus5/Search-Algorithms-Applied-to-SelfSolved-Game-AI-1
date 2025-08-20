@@ -1,115 +1,320 @@
-from Abstractions import Problem, Node, reconstruct_path
-from Strucure import Stack, Queue, PriorityQueue, MinHeap
-from time import time
+from typing import Callable, Dict, Optional, Any
+import time
+import sys
+import os
 
-class PriorityQueue:
-    # redefinida aquí para aislar dependencia (opcional: usa la de estructuras)
-    def __init__(self):
-        self._h = MinHeap()
-        self._t = 0
-    def push(self, priority, item):
-        self._t += 1
-        self._h.push((priority, self._t, item))
-    def pop(self):
-        return self._h.pop()[2]
-    def is_empty(self): return self._h.is_empty()
-    def __len__(self): return len(self._h)
+# Añadir el directorio padre al path para imports
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-def BFS(problem: Problem):
+from Abstractions import Problem, Node, reconstruct_path, reconstruct_actions
+from Strucure import Stack, Queue, MinHeap
+
+SearchResult = Dict[str, Any]
+
+def bfs(problem: Problem) -> SearchResult:
+    """Búsqueda en anchura (Breadth-First Search)"""
+    start_time = time.perf_counter()
     frontier = Queue()
-    frontier.enqueue(Node(problem.initial_state()))
+    start_node = Node(problem.initial_state())
+    frontier.push(start_node)
     explored = set()
     expanded = 0
+    
     while not frontier.is_empty():
-        n = frontier.dequeue()
-        if problem.is_goal(n.state): return reconstruct_path(n), expanded
-        if n.state in explored: continue
-        explored.add(n.state); expanded += 1
-        for c in n.expand(problem): frontier.enqueue(c)
-    return None, expanded
+        node = frontier.pop()
+        
+        if problem.is_goal(node.state):
+            end_time = time.perf_counter()
+            path = reconstruct_path(node)
+            actions = reconstruct_actions(node)
+            return {
+                'success': True,
+                'path': path,
+                'actions': actions,
+                'cost': node.g,
+                'depth': node.depth,
+                'expanded': expanded,
+                'time': end_time - start_time
+            }
+        
+        if node.state in explored:
+            continue
+            
+        explored.add(node.state)
+        expanded += 1
+        
+        for child in node.expand(problem):
+            if child.state not in explored:
+                frontier.push(child)
+    
+    end_time = time.perf_counter()
+    return {
+        'success': False,
+        'path': None,
+        'actions': None,
+        'cost': None,
+        'depth': None,
+        'expanded': expanded,
+        'time': end_time - start_time
+    }
 
-def DFS(problem: Problem, depth_limit=None):
+def dfs(problem: Problem, depth_limit: Optional[int] = None) -> SearchResult:
+    """Búsqueda en profundidad (Depth-First Search)"""
+    start_time = time.perf_counter()
     frontier = Stack()
-    frontier.push(Node(problem.initial_state()))
+    start_node = Node(problem.initial_state())
+    frontier.push(start_node)
     explored = set()
     expanded = 0
+    
     while not frontier.is_empty():
-        n = frontier.pop()
-        if problem.is_goal(n.state): return reconstruct_path(n), expanded
-        if n.state in explored: continue
-        if depth_limit is not None and n.depth > depth_limit: continue
-        explored.add(n.state); expanded += 1
-        for c in n.expand(problem): frontier.push(c)
-    return None, expanded
-
-def UCS(problem: Problem):
-    pq = PriorityQueue()
-    start = Node(problem.initial_state())
-    pq.push(0.0, start)
-    best = {start.state: 0.0}
-    expanded = 0
-    while not pq.is_empty():
-        n = pq.pop()
-        if problem.is_goal(n.state): return reconstruct_path(n), expanded
+        node = frontier.pop()
+        
+        if problem.is_goal(node.state):
+            end_time = time.perf_counter()
+            path = reconstruct_path(node)
+            actions = reconstruct_actions(node)
+            return {
+                'success': True,
+                'path': path,
+                'actions': actions,
+                'cost': node.g,
+                'depth': node.depth,
+                'expanded': expanded,
+                'time': end_time - start_time
+            }
+        
+        if node.state in explored:
+            continue
+            
+        if depth_limit is not None and node.depth >= depth_limit:
+            continue
+            
+        explored.add(node.state)
         expanded += 1
-        for c in n.expand(problem):
-            if c.state not in best or c.g < best[c.state]:
-                best[c.state] = c.g
-                pq.push(c.g, c)
-    return None, expanded
+        
+        for child in node.expand(problem):
+            if child.state not in explored:
+                frontier.push(child)
+    
+    end_time = time.perf_counter()
+    return {
+        'success': False,
+        'path': None,
+        'actions': None,
+        'cost': None,
+        'depth': None,
+        'expanded': expanded,
+        'time': end_time - start_time
+    }
 
-def Greedy(problem: Problem, h):
-    pq = PriorityQueue()
-    start = Node(problem.initial_state())
-    pq.push(h(start.state), start)
-    seen = set()
+def ucs(problem: Problem) -> SearchResult:
+    """Búsqueda de costo uniforme (Uniform Cost Search)"""
+    start_time = time.perf_counter()
+    frontier = MinHeap()
+    start_node = Node(problem.initial_state())
+    frontier.push(start_node, 0.0)
+    best_g = {start_node.state: 0.0}
     expanded = 0
-    while not pq.is_empty():
-        n = pq.pop()
-        if problem.is_goal(n.state): return reconstruct_path(n), expanded
-        if n.state in seen: continue
-        seen.add(n.state); expanded += 1
-        for c in n.expand(problem): pq.push(h(c.state), c)
-    return None, expanded
-
-def A_star(problem: Problem, h):
-    pq = PriorityQueue()
-    start = Node(problem.initial_state())
-    pq.push(h(start.state) + start.g, start)
-    best = {start.state: 0.0}
-    expanded = 0
-    while not pq.is_empty():
-        n = pq.pop()
-        if problem.is_goal(n.state): return reconstruct_path(n), expanded
+    
+    while not frontier.is_empty():
+        _, node = frontier.pop()
+        
+        if problem.is_goal(node.state):
+            end_time = time.perf_counter()
+            path = reconstruct_path(node)
+            actions = reconstruct_actions(node)
+            return {
+                'success': True,
+                'path': path,
+                'actions': actions,
+                'cost': node.g,
+                'depth': node.depth,
+                'expanded': expanded,
+                'time': end_time - start_time
+            }
+        
+        if node.state in best_g and node.g > best_g[node.state]:
+            continue
+            
         expanded += 1
-        for c in n.expand(problem):
-            f = c.g + h(c.state)
-            if c.state not in best or c.g < best[c.state]:
-                best[c.state] = c.g
-                pq.push(f, c)
-    return None, expanded
+        
+        for child in node.expand(problem):
+            if child.state not in best_g or child.g < best_g[child.state]:
+                best_g[child.state] = child.g
+                frontier.push(child, child.g)
+    
+    end_time = time.perf_counter()
+    return {
+        'success': False,
+        'path': None,
+        'actions': None,
+        'cost': None,
+        'depth': None,
+        'expanded': expanded,
+        'time': end_time - start_time
+    }
 
-def IDA_star(problem: Problem, h):
-    from math import inf
-    start = Node(problem.initial_state())
-    bound = h(start.state)
+def greedy(problem: Problem, h: Callable) -> SearchResult:
+    """Búsqueda voraz (Greedy Best-First Search)"""
+    start_time = time.perf_counter()
+    frontier = MinHeap()
+    start_node = Node(problem.initial_state())
+    h_value = h(start_node.state)
+    frontier.push(start_node, h_value)
+    explored = set()
+    expanded = 0
+    
+    while not frontier.is_empty():
+        _, node = frontier.pop()
+        
+        if problem.is_goal(node.state):
+            end_time = time.perf_counter()
+            path = reconstruct_path(node)
+            actions = reconstruct_actions(node)
+            return {
+                'success': True,
+                'path': path,
+                'actions': actions,
+                'cost': node.g,
+                'depth': node.depth,
+                'expanded': expanded,
+                'time': end_time - start_time
+            }
+        
+        if node.state in explored:
+            continue
+            
+        explored.add(node.state)
+        expanded += 1
+        
+        for child in node.expand(problem):
+            if child.state not in explored:
+                h_value = h(child.state)
+                frontier.push(child, h_value)
+    
+    end_time = time.perf_counter()
+    return {
+        'success': False,
+        'path': None,
+        'actions': None,
+        'cost': None,
+        'depth': None,
+        'expanded': expanded,
+        'time': end_time - start_time
+    }
+
+def astar(problem: Problem, h: Callable) -> SearchResult:
+    """Búsqueda A* (A-Star)"""
+    start_time = time.perf_counter()
+    frontier = MinHeap()
+    start_node = Node(problem.initial_state())
+    f_value = start_node.g + h(start_node.state)
+    frontier.push(start_node, f_value)
+    best_g = {start_node.state: 0.0}
+    expanded = 0
+    
+    while not frontier.is_empty():
+        _, node = frontier.pop()
+        
+        if problem.is_goal(node.state):
+            end_time = time.perf_counter()
+            path = reconstruct_path(node)
+            actions = reconstruct_actions(node)
+            return {
+                'success': True,
+                'path': path,
+                'actions': actions,
+                'cost': node.g,
+                'depth': node.depth,
+                'expanded': expanded,
+                'time': end_time - start_time
+            }
+        
+        if node.state in best_g and node.g > best_g[node.state]:
+            continue
+            
+        expanded += 1
+        
+        for child in node.expand(problem):
+            if child.state not in best_g or child.g < best_g[child.state]:
+                best_g[child.state] = child.g
+                f_value = child.g + h(child.state)
+                frontier.push(child, f_value)
+    
+    end_time = time.perf_counter()
+    return {
+        'success': False,
+        'path': None,
+        'actions': None,
+        'cost': None,
+        'depth': None,
+        'expanded': expanded,
+        'time': end_time - start_time
+    }
+
+def ida_star(problem: Problem, h: Callable, max_bound: int = 10000) -> SearchResult:
+    """Búsqueda IDA* (Iterative Deepening A-Star)"""
+    start_time = time.perf_counter()
+    start_node = Node(problem.initial_state())
+    bound = h(start_node.state)
     expanded_total = 0
-
-    def dfs_limited(n, g, bound):
+    
+    def dfs_limited(node, g, bound):
         nonlocal expanded_total
-        f = g + h(n.state)
-        if f > bound: return f, None
-        if problem.is_goal(n.state): return f, reconstruct_path(n)
-        m = inf
-        for c in n.expand(problem):
-            expanded_total += 1
-            t, sol = dfs_limited(c, g + (c.g - n.g), bound)
-            if sol is not None: return t, sol
-            if t < m: m = t
-        return m, None
-
-    while True:
-        t, sol = dfs_limited(start, 0, bound)
-        if sol is not None: return sol, expanded_total
-        if t == float("inf"): return None, expanded_total
+        f = g + h(node.state)
+        if f > bound:
+            return f, None
+        if problem.is_goal(node.state):
+            return f, node
+        
+        min_bound = float('inf')
+        expanded_total += 1
+        
+        for child in node.expand(problem):
+            child_g = g + (child.g - node.g)
+            t, result = dfs_limited(child, child_g, bound)
+            if result is not None:
+                return t, result
+            if t < min_bound:
+                min_bound = t
+        
+        return min_bound, None
+    
+    while bound <= max_bound:
+        t, solution_node = dfs_limited(start_node, 0, bound)
+        if solution_node is not None:
+            end_time = time.perf_counter()
+            path = reconstruct_path(solution_node)
+            actions = reconstruct_actions(solution_node)
+            return {
+                'success': True,
+                'path': path,
+                'actions': actions,
+                'cost': solution_node.g,
+                'depth': solution_node.depth,
+                'expanded': expanded_total,
+                'time': end_time - start_time
+            }
+        if t == float('inf'):
+            break
         bound = t
+    
+    end_time = time.perf_counter()
+    return {
+        'success': False,
+        'path': None,
+        'actions': None,
+        'cost': None,
+        'depth': None,
+        'expanded': expanded_total,
+        'time': end_time - start_time
+    }
+
+# Aliases para compatibilidad con código existente
+BFS = bfs
+DFS = dfs
+UCS = ucs
+Greedy = greedy
+A_star = astar
+IDA_star = ida_star

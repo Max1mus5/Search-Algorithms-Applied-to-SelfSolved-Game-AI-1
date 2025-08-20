@@ -1,80 +1,133 @@
-import time
-
-def run_and_measure(problem, algorithms):
-    rows = []
-    for name, fn in algorithms:
-        t0 = time.time()
-        result, expanded = fn(problem)
-        dt = time.time() - t0
-        if result is None:
-            depth = None; cost = None; steps = None
-        else:
-            steps = [a for a,_ in result][1:]  # acciones excluyendo el None inicial
-            depth = len(steps)
-            cost = result[-1][1]  # estado final (no usamos g aquí por simplicidad)
-        rows.append((name, expanded, depth, dt))
-    return rows
-
-# Instancia de prueba
-
-# Representación: tupla de 9 ints; 0 = hueco
-from Abstractions import State, Problem
-import importlib.util
+from typing import List, Tuple, Iterable
 import sys
 import os
-from Heuristics import manhattan, misplaced
 
-# Importar algoritmos desde archivo con nombre complejo
-algos_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'Search-algoritms', 'BFS - DFS - Uniform Cost - Greedy - A - IDA.py')
-spec = importlib.util.spec_from_file_location("algos_mod", algos_path)
-algos_mod = importlib.util.module_from_spec(spec)
-sys.modules["algos_mod"] = algos_mod
-spec.loader.exec_module(algos_mod)
-BFS = algos_mod.BFS
-DFS = algos_mod.DFS
-UCS = algos_mod.UCS
-Greedy = algos_mod.Greedy
-A_star = algos_mod.A_star
-IDA_star = algos_mod.IDA_star
+# Añadir el directorio padre al path para imports
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+from Abstractions import Problem
+
+Action = str
+State = Tuple[int, ...]  # largo 9
 
 GOAL = (1,2,3,4,5,6,7,8,0)
-GOAL_POS = {v:i for i,v in enumerate(GOAL)}
 
-class PuzzleState(State):
-    __slots__ = ("tiles",)
-    def __init__(self, tiles): self.tiles = tuple(tiles)
-    def key(self): return self.tiles
-    def __repr__(self): return f"PuzzleState{self.tiles}"
+class EightPuzzle(Problem):
+    def __init__(self, initial: State, goal: State=GOAL):
+        self.initial = initial
+        self.goal = goal
+        
+    def initial_state(self) -> State:
+        return self.initial
+        
+    def is_goal(self, state: State) -> bool:
+        return state == self.goal
+        
+    def actions(self, state: State) -> Iterable[Action]:
+        """Retorna las acciones válidas desde un estado"""
+        i = state.index(0)  # posición del hueco
+        x, y = divmod(i, 3)  # convertir a coordenadas x,y
+        
+        actions = []
+        if x > 0: actions.append("up")      # puede mover hacia arriba
+        if x < 2: actions.append("down")    # puede mover hacia abajo  
+        if y > 0: actions.append("left")    # puede mover hacia izquierda
+        if y < 2: actions.append("right")   # puede mover hacia derecha
+        
+        return actions
+    
+    def result(self, state: State, action: Action) -> State:
+        """Aplica una acción y retorna el nuevo estado"""
+        i = state.index(0)  # posición del hueco
+        x, y = divmod(i, 3)
+        
+        # Calcular nueva posición del hueco
+        if action == "up":
+            new_x, new_y = x - 1, y
+        elif action == "down":
+            new_x, new_y = x + 1, y
+        elif action == "left":
+            new_x, new_y = x, y - 1
+        elif action == "right":
+            new_x, new_y = x, y + 1
+        else:
+            raise ValueError(f"Acción inválida: {action}")
+            
+        j = new_x * 3 + new_y  # nueva posición lineal
+        
+        # Intercambiar hueco con la ficha
+        tiles = list(state)
+        tiles[i], tiles[j] = tiles[j], tiles[i]
+        
+        return tuple(tiles)
+    
+    def step_cost(self, state: State, action: Action, next_state: State) -> int:
+        return 1
+        
+    def successors(self, state: State) -> Iterable[Tuple[Action, State, int]]:
+        """Retorna (action, next_state, step_cost) para cada acción válida"""
+        for action in self.actions(state):
+            next_state = self.result(state, action)
+            cost = self.step_cost(state, action, next_state)
+            yield (action, next_state, cost)
+
+# Alias para compatibilidad con código existente
+class PuzzleState:
+    def __init__(self, tiles): 
+        self.tiles = tuple(tiles)
+    def key(self): 
+        return self.tiles
+    def __repr__(self): 
+        return f"PuzzleState{self.tiles}"
 
 class Puzzle(Problem):
+    """Clase de compatibilidad con código existente"""
     def __init__(self, start):
-        self.start = PuzzleState(start)
-    def initial_state(self) -> State: return self.start
-    def is_goal(self, s: PuzzleState) -> bool: return s.tiles == GOAL
-    def actions(self, s: PuzzleState):
-        i = s.tiles.index(0); x,y = divmod(i,3)
-        for dx,dy,a in ((1,0,"DOWN"),(-1,0,"UP"),(0,1,"RIGHT"),(0,-1,"LEFT")):
-            nx,ny = x+dx,y+dy
-            if 0 <= nx < 3 and 0 <= ny < 3: yield a
-    def result(self, s: PuzzleState, a):
-        delta = {"DOWN":(1,0),"UP":(-1,0),"RIGHT":(0,1),"LEFT":(0,-1)}[a]
-        i = s.tiles.index(0); x,y = divmod(i,3)
-        nx,ny = x+delta[0], y+delta[1]; j = nx*3+ny
-        tiles = list(s.tiles); tiles[i], tiles[j] = tiles[j], tiles[i]
-        return PuzzleState(tiles)
-START = (1,2,3,4,5,6,0,7,8)  # puedes cambiarla por otras
-p = Puzzle(START)
+        if isinstance(start, (list, tuple)):
+            self.start_state = start
+        else:
+            self.start_state = start.tiles if hasattr(start, 'tiles') else start
+        self.puzzle = EightPuzzle(self.start_state)
+        
+    def initial_state(self):
+        return self.start_state
+        
+    def is_goal(self, state):
+        if hasattr(state, 'tiles'):
+            return state.tiles == GOAL
+        return state == GOAL
+        
+    def actions(self, state):
+        if hasattr(state, 'tiles'):
+            state = state.tiles
+        return self.puzzle.actions(state)
+        
+    def result(self, state, action):
+        if hasattr(state, 'tiles'):
+            state = state.tiles
+        return self.puzzle.result(state, action)
+        
+    def successors(self, state):
+        if hasattr(state, 'tiles'):
+            state = state.tiles
+        return self.puzzle.successors(state)
 
-algos = [
-    ("BFS", lambda pr: BFS(pr)),
-    ("DFS", lambda pr: DFS(pr)),
-    ("UCS", lambda pr: UCS(pr)),
-    ("Greedy(manhattan)", lambda pr: Greedy(pr, manhattan)),
-    ("A*(manhattan)", lambda pr: A_star(pr, manhattan)),
-    ("A*(misplaced)", lambda pr: A_star(pr, misplaced)),
-    ("IDA*(manhattan)", lambda pr: IDA_star(pr, manhattan)),
-]
-
-rows = run_and_measure(p, algos)
-for r in rows:
-    print(f"{r[0]:18s} | expandidos={r[1]:6} | profundidad={r[2]} | tiempo={r[3]:.3f}s")
+# Ejemplo de uso y pruebas
+if __name__ == "__main__":
+    # Estados de prueba
+    easy = (1,2,3,4,5,6,7,0,8)
+    medium = (1,2,3,4,5,6,0,7,8) 
+    hard = (7,2,4,5,0,6,8,3,1)
+    
+    puzzle = EightPuzzle(easy)
+    print(f"Estado inicial: {puzzle.initial_state()}")
+    print(f"¿Es meta?: {puzzle.is_goal(puzzle.initial_state())}")
+    print(f"Acciones válidas: {list(puzzle.actions(puzzle.initial_state()))}")
+    
+    # Probar una acción
+    if puzzle.actions(puzzle.initial_state()):
+        action = list(puzzle.actions(puzzle.initial_state()))[0]
+        new_state = puzzle.result(puzzle.initial_state(), action)
+        print(f"Después de '{action}': {new_state}")
+        
+    print("Pruebas del 8-puzzle completadas.")
