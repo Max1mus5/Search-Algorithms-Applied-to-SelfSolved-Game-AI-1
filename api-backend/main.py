@@ -11,6 +11,7 @@ import importlib.util
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # Add parent directory to path to import our algorithms
@@ -44,6 +45,15 @@ app = FastAPI(
     title="8-Puzzle Solver API",
     description="API for solving 8-puzzle using various search algorithms",
     version="2.0.0"
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
 )
 
 # Request/Response models
