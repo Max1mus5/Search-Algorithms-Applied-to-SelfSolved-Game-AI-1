@@ -196,10 +196,10 @@ export default function Home() {
       <div className="max-w-6xl mx-auto space-y-6">
         <header className="text-center">
           <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">
-            🧩 Puzzle Solver AI
+            Puzzle Solver
           </h1>
           <p className="text-sm text-muted-foreground">
-            Solve 8-puzzle using advanced search algorithms • Fase 2
+            Solve 8-puzzle using advanced search algorithms
           </p>
         </header>
 
@@ -208,7 +208,7 @@ export default function Home() {
           <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                ⚙️ Configuration
+                Configuration
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -258,7 +258,7 @@ export default function Home() {
                     <SelectValue placeholder="Load preset..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="solved">✅ Solved State</SelectItem>
+                    <SelectItem value="solved">Solved State</SelectItem>
                     <SelectItem value="easy">🟢 Easy (1-2 moves)</SelectItem>
                     <SelectItem value="medium">🟡 Medium (3-5 moves)</SelectItem>
                     <SelectItem value="hard">🔴 Hard (10+ moves)</SelectItem>
@@ -317,7 +317,7 @@ export default function Home() {
                       Solving...
                     </>
                   ) : (
-                    "🎬 Show Steps"
+                    "Show Steps"
                   )}
                 </Button>
               </div>
@@ -328,7 +328,7 @@ export default function Home() {
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                🎯 Puzzle Board
+                Puzzle Board
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -418,7 +418,7 @@ export default function Home() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                📋 Solution Steps
+                Solution Steps
                 <span className="text-sm font-normal text-muted-foreground">
                   ({actionsList.length} steps)
                 </span>
@@ -458,7 +458,7 @@ export default function Home() {
         {/* Footer */}
         <footer className="text-center text-xs text-muted-foreground border-t pt-4">
           <p>
-            🚀 Fase 2 - Web Interface • Built with Next.js + Tailwind CSS + Python FastAPI
+             Web Interface • Built with Next.js + Tailwind CSS + Python FastAPI
           </p>
           <p className="mt-1">
             Make sure the Python API is running on <code>localhost:8000</code>
