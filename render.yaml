@@ -10,6 +10,6 @@ healthCheck:
   path: /health
 env:
   - key: PYTHON_VERSION
-    value: "3.9.16"
+    value: "3.11.0"
   - key: PIP_DISABLE_PIP_VERSION_CHECK
     value: "1"
